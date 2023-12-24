@@ -1,0 +1,71 @@
+body {
+    margin: 0;
+}
+
+.flex-container {
+    height: calc(100% - 100px);
+    width: 100%;
+    /* margin: 0 auto; */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    height: 100vh;
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100vh;
+    background-color: #202124;
+    color: #ffffff;
+
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    
+    // .roomButton{
+    //     background-color: #3c4043 !important;
+    //     >svg{
+    //         color: #ffffff !important;
+    //     }
+    // }
+    // .endcallButton{
+    //     background-color: rgb(234,67,53) !important;
+    //     >svg{
+    //         color: #ffffff !important;
+    //     }
+    // }
+}
+
+.div-send-msg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.btn-down {
+    z-index: 2;
+    position: fixed; 
+    bottom: 15px;
+    width: 100%;
+    height: auto;
+    display: flex;
+    margin: 0 30px;
+    justify-content: space-between;
+    button{
+        margin: 0px 6px;
+        background-color: #3c4043 !important;
+        svg{
+            color: #ffffff !important;
+        }
+    }
+    .off{
+        background-color: rgb(234,67,53) !important;
+    }
+    .link{
+        color: #ffffff;
+        padding: 12px;
+    }
+}
