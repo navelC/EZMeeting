@@ -23,3 +23,7 @@ export async function login(data) {
     const res = await instance.post(`/login`, data);
     return res;
 }
+export async function updateUser(data, id) {
+  const res = await instance.post(`/users/`+id, data);
+  return res;
+}

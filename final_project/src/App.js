@@ -6,21 +6,32 @@ import 'bootstrap/dist/css/bootstrap.css'
 import Header from './Layout/Header/Header';
 import Layout from './Layout/Layout/Layout';
 
-class App extends Component {	
+class App extends Component {
+	constructor(props){
+		super(props)
+		this.state = {
+			user: JSON.parse(localStorage.getItem('user')),
+		}
+	
+	}
+	setUser = (user) => {
+		this.setState({user})
+	}
+
 	render() {
 		const isRoom = window.location.href.includes("/room/")
-		console.log(isRoom)
 		const Comp = !isRoom?
 		(
 			<div className='wrap'>
 				<div className='cntainer'>
 					<Router>
-						<Header />
+						<Header user={this.state.user}/>
 						<Switch>
 							<Route path="/" exact component={Home} />
-							<Route path="/room/:url" exact component={SwitchRoom} />
-							<Route path="/home/login" component={() => <Register isLogin/>} />
-							<Route path="/home/register" component={Register} />
+							<Route path="/room/:url" exact component={(props) => <SwitchRoom user={this.state.user} context={props}/>} />
+							<Route path="/login" component={(props) => <Register mode={1} setUser={this.setUser} context={props}/>} />
+							<Route path="/register" component={(props) => <Register mode={2} setUser={this.setUser} context={props} />} />
+							<Route path="/user" component={(props) => <Register mode={3} setUser={this.setUser} user={this.state.user} context={props} />} />
 						</Switch>
 					</Router>
 				</div>
@@ -29,10 +40,11 @@ class App extends Component {
 		(
 			<Router>
 				<Switch>
-					<Route path="/" exact component={Home} />
-					<Route path="/room/:url" exact component={SwitchRoom} />
-					<Route path="/home/login" component={() => <Register isLogin/>} />
-					<Route path="/home/register" component={Register} />
+				<Route path="/" exact component={Home} />
+					<Route path="/room/:url" exact component={(props) => <SwitchRoom user={this.state.user} context={props}/>} />
+					<Route path="/login" component={(props) => <Register mode={1} setUser={this.setUser} context={props}/>} />
+					<Route path="/register" component={(props) => <Register mode={2} setUser={this.setUser} context={props} />} />
+					<Route path="/user" component={(props) => <Register mode={3} setUser={this.setUser} context={props} />} />
 				</Switch>
 			</Router>
 		)

@@ -5,7 +5,12 @@ import { Button } from '@material-ui/core';
 import { Link } from 'react-router-dom';
 
 class Header extends Component {
+    constructor(props) {
+       super(props) 
+    }
 	render() {
+        const {user} = this.props
+        console.log(this.props)
 		return (
 			<div className='header'>
                 <div className='logo' onClick={() => {window.location.href = "/"}}>EZMeeting</div>
@@ -17,9 +22,9 @@ class Header extends Component {
                 </div>
                 <div>
                     <div>
-                        <Link to="/home/Login" className="notLinkBlack">Login</Link>
+                        {user?<Link to="/user" className="notLinkBlack">{user.name}</Link>:<Link to="/Login" className="notLinkBlack">Login</Link>}
                     </div>
-                    <Button variant="contained" color='primary' onClick={() =>{}}><Link className="notLink" to="/home/Register">Register</Link></Button>
+                    <Button variant="contained" color='primary' onClick={() =>{}}>{user?"Logout":<Link className="notLink" to="/Register">Register</Link>}</Button>
                 </div>
             </div>
 		)

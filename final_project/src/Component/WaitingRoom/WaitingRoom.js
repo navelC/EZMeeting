@@ -8,7 +8,7 @@ class WaitingRoom extends Component{
     constructor(props){
         super(props)
         this.state = {
-            disabled: true,
+            disabled: !this.props.user?.name,
             username: "",
         }
     }
@@ -33,8 +33,8 @@ class WaitingRoom extends Component{
                     <Header />
                     <div style={{background: "white", width: "30%", height: "auto", padding: "20px", minWidth: "400px",
                             textAlign: "center", margin: "auto", marginTop: "50px", justifyContent: "center"}}>
-                        <p style={{ margin: 0, fontWeight: "bold", paddingRight: "50px" }}>Set your username</p>
-                        <Input placeholder="Username" defaultValue={this.state.username} onChange={e => this.handleUsername(e)} />
+                        <p style={{ margin: 0, fontWeight: "bold", paddingRight: "50px" }}>{this.props.user?.name||"Set your username"}</p>
+                        {this.props.user?.name?"":(<Input placeholder="Username" defaultValue={this.state.username} onChange={e => this.handleUsername(e)} />)}
                         <Button variant="contained" color="primary" onClick={this.handleJoin} style={{ margin: "20px" }} disabled={this.state.disabled}>Request to join</Button>
                     </div>
             

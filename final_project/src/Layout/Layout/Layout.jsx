@@ -5,9 +5,8 @@ import Loading from "../../Loading";
 
 const Layout = (props) => {
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState({});
   return (
-    <LoadingContext.Provider value={{ loading, setLoading, user, setUser }}>
+    <LoadingContext.Provider value={{ loading, setLoading}}>
       {loading && <Loading loading={loading} />}
       {props.children}
     </LoadingContext.Provider>

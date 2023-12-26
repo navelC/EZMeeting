@@ -21,9 +21,9 @@ class SwitchRoom extends Component {
 		return (
 			<div>
 				{(UserProfile.getName() || !this.state.isInWaitingRoom)?
-					<LiveRoom/>
+					<LiveRoom user={this.props.user}/>
 					:
-					<WaitingRoom switch={this.SwitchRoom} />
+					<WaitingRoom user={this.props.user} switch={this.SwitchRoom} />
 				}
 			</div>
 		)

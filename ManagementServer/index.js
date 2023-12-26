@@ -35,7 +35,8 @@ app.post('/users', async (req, res) => {
             .input('password', sql.VarChar(MAX), hashedPash)
             .query('INSERT INTO EM_User (name, email, password) OUTPUT inserted.userID VALUES (@name, @email, @password);');
         console.log(result)
-        res.json({ userID: result.recordset[0].userID });
+        const {userID} = result.recordset[0]
+        res.json({ userID, name });
     } catch (err) {
         console.error('Error creating a new user:', err.message);
         res.status(500).send('Internal Server Error');
@@ -56,8 +57,10 @@ app.post('/login', async (req, res) => {
             return res.status(404).send('User not found');
         }
        const result = await bcrypt.compare(password, user.recordset[0].password)
-        if(result)
-            res.json({ name: user.recordset[0].name });
+        if(result){
+            const {userID, name} = user.recordset[0]
+            res.json({ userID, name});
+        }
         else{
             return res.status(404).send('User not found');
         }

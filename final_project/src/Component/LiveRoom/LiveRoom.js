@@ -52,7 +52,7 @@ class LiveRoom extends Component {
 			messages: [],
 			message: "",
 			newmessages: 0,
-			username: UserProfile.getName(),
+			username: this.props.user?.name || UserProfile.getName(),
 			showUserModal : false,
 			listUser : [],
 			isAdmin: false
@@ -259,6 +259,10 @@ class LiveRoom extends Component {
 			socket.on('user-left', (id) => {
 				this.setState({listUser : this.state.listUser.filter(data => data.socketId !== socket.id)})
 				UserFrameHelper.removeVideo(id)
+			})
+
+			socket.on('grant-role', () => {
+				this.setState({isAdmin : true})
 			})
 
 			socket.on('grant-role', () => {

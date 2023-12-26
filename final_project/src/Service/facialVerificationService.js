@@ -18,3 +18,8 @@ export async function rollcall(data) {
   const res = await instance.post(`/rollcall`, data);
   return res;
 }
+export async function uploadImage(data) {
+  const res = await instance.post(`/upload`, data)
+
+  return res;
+}
