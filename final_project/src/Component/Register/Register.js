@@ -55,19 +55,22 @@ class Register extends Component {
         }
     }
     handleSubmitSuccess = ({userID, name}) => {
+        localStorage.setItem('user', JSON.stringify({userID, name}))
+        JSON.parse(localStorage.getItem('user'))
         this.props.setUser({userID, name})
         this.props.context.history.push('/')
     }
 
     Login = async () => {
         const {email, password} = this.state
-        const result = await login(email, password)
+        const result = await login({email, password})
         this.handleSubmitSuccess(result.data)
     }
 
     Regis = async() => {
+        console.log(this.state)
         const {email, password, name} = this.state
-        const result = await regis(email, password, name)
+        const result = await regis({email, password, name})
         this.handleSubmitSuccess(result.data)
     }
 
@@ -105,7 +108,7 @@ class Register extends Component {
 		return (
 			<div className='content' style={{marginTop: '60px'}}>
                 <div className='title'>{title}</div>
-                {this.props.mode !== 2 && (
+                {this.props.mode !== 1 && (
                     <div className='box'>
                         <TextField id="outlined-basic" onChange={(e) => this.handleChange(e, 'name')} fullWidth defaultValue={this.props.user?.name} label="name" variant="outlined" />
                     </div>

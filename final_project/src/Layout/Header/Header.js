@@ -22,7 +22,7 @@ class Header extends Component {
                 </div>
                 <div>
                     <div>
-                        {user?<Link to="/user" className="notLinkBlack">{user.name}</Link>:<Link to="/Login" className="notLinkBlack">Login</Link>}
+                        {user?<a href='/user' className="notLinkBlack">{user.name}</a>:<a href="/Login" className="notLinkBlack">Login</a>}
                     </div>
                     <Button variant="contained" color='primary' onClick={() =>{}}>{user?"Logout":<Link className="notLink" to="/Register">Register</Link>}</Button>
                 </div>

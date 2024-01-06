@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import io from 'socket.io-client'
 
-import {IconButton, Badge, Input, Button} from '@material-ui/core'
+import { IconButton, Badge, Input, Button } from '@material-ui/core'
 import VideocamIcon from '@material-ui/icons/Videocam'
 import VideocamOffIcon from '@material-ui/icons/VideocamOff'
 import MicIcon from '@material-ui/icons/Mic'
@@ -52,21 +52,24 @@ class LiveRoom extends Component {
 			messages: [],
 			message: "",
 			newmessages: 0,
-			username: this.props.user?.name || UserProfile.getName(),
-			showUserModal : false,
-			listUser : [],
-			isAdmin: false
+			user: this.props.user || { name: UserProfile.getName(), userID: -1 },
+			showUserModal: false,
+			listUser: [],
+			isAdmin: false,
+			canOpenMic: true,
+			canOpenCam: true,
 		}
 		connections = {}
 		this.getPermissions()
 	}
-	componentDidMount(){
+	componentDidMount() {
+		console.log('didmount', this.state)
 		this.getUserMedia()
 		this.connectToSocketServer()
 	}
 
 	getPermissions = async () => {
-		try{
+		try {
 			console.log('getperrmiss')
 			await navigator.mediaDevices.getUserMedia({ video: true })
 				.then(() => this.videoAvailable = true)
@@ -86,34 +89,29 @@ class LiveRoom extends Component {
 			})
 			if (this.videoAvailable || this.audioAvailable) {
 				navigator.mediaDevices.getUserMedia({ video: this.videoAvailable, audio: this.audioAvailable })
-					.then((stream) => {
-						window.localStream = stream
-						this.localVideoref.current.srcObject = stream
-					})
-					.then((stream) => {})
+					.then(this.getUserMediaSuccess)
 					.catch((e) => console.log(e))
 			}
-		} catch(e) { console.log(e) }
+		} catch (e) { console.log(e) }
 	}
 
 	getUserMedia = () => {
 		if ((this.state.video && this.videoAvailable) || (this.state.audio && this.audioAvailable)) {
 			navigator.mediaDevices.getUserMedia({ video: this.state.video, audio: this.state.audio })
 				.then(this.getUserMediaSuccess)
-				.then((stream) => {})
 				.catch((e) => console.log(e))
 		} else {
 			try {
 				let tracks = this.localVideoref.current.srcObject.getTracks()
 				tracks.forEach(track => track.stop())
-			} catch (e) {}
+			} catch (e) { }
 		}
 	}
 
 	getUserMediaSuccess = (stream) => {
 		try {
 			window.localStream.getTracks().forEach(track => track.stop())
-		} catch(e) { console.log(e) }
+		} catch (e) { console.log(e) }
 
 		window.localStream = stream
 		this.localVideoref.current.srcObject = stream
@@ -126,6 +124,7 @@ class LiveRoom extends Component {
 			connections[id].createOffer().then((description) => {
 				connections[id].setLocalDescription(description)
 					.then(() => {
+						console.log(description, connections[id].localDescription)
 						socket.emit('signal', id, JSON.stringify({ 'sdp': connections[id].localDescription }))
 					})
 					.catch(e => console.log(e))
@@ -140,7 +139,7 @@ class LiveRoom extends Component {
 				try {
 					let tracks = this.localVideoref.current.srcObject.getTracks()
 					tracks.forEach(track => track.stop())
-				} catch(e) { console.log(e) }
+				} catch (e) { console.log(e) }
 
 				let blackSilence = (...args) => new MediaStream([this.black(...args), this.silence()])
 				window.localStream = blackSilence()
@@ -166,23 +165,22 @@ class LiveRoom extends Component {
 			if (navigator.mediaDevices.getDisplayMedia) {
 				navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
 					.then(this.getDislayMediaSuccess)
-					.then((stream) => {})
 					.catch((e) => {
 						console.log(e)
-						this.setState({screen: false})
+						this.setState({ screen: false })
 					})
 			}
 		}
 		else {
 			const tracks = this.screenstream.gettracks();
-			for( var i = 0 ; i < tracks.length ; i++ ) tracks[i].stop();
+			for (var i = 0; i < tracks.length; i++) tracks[i].stop();
 		}
 	}
 
 	getDislayMediaSuccess = (stream) => {
 		try {
 			window.localStream.getTracks().forEach(track => track.stop())
-		} catch(e) { console.log(e) }
+		} catch (e) { console.log(e) }
 
 		window.localStream = stream
 		this.localVideoref.current.srcObject = stream
@@ -200,7 +198,7 @@ class LiveRoom extends Component {
 					.catch(e => console.log(e))
 			})
 
-			socket.on('list-users', (data)=>{
+			socket.on('list-users', (data) => {
 				console.log(data);
 			})
 		}
@@ -212,7 +210,7 @@ class LiveRoom extends Component {
 				try {
 					let tracks = this.localVideoref.current.srcObject.getTracks()
 					tracks.forEach(track => track.stop())
-				} catch(e) { console.log(e) }
+				} catch (e) { console.log(e) }
 
 				let blackSilence = (...args) => new MediaStream([this.black(...args), this.silence()])
 				window.localStream = blackSilence()
@@ -251,35 +249,49 @@ class LiveRoom extends Component {
 		socket.on('signal', this.gotMessageFromServer)
 
 		socket.on('connect', () => {
-			socket.emit('join-call', window.location.href , this.state.username)
+			socket.emit('join-call', window.location.href, this.state.user.name, this.state.user.userID)
 			socketId = socket.id
 
 			socket.on('chat-message', this.addMessage)
 
 			socket.on('user-left', (id) => {
-				this.setState({listUser : this.state.listUser.filter(data => data.socketId !== socket.id)})
+				this.setState({ listUser: this.state.listUser.filter(data => data.socketId !== socket.id) })
 				UserFrameHelper.removeVideo(id)
 			})
 
 			socket.on('grant-role', () => {
-				this.setState({isAdmin : true})
+				this.setState({ isAdmin: true })
 			})
 
-			socket.on('grant-role', () => {
-				this.setState({isAdmin : true})
+			socket.on('mute-audio', (canOpenMic) => {
+				if (!canOpenMic) this.setState({ audio: canOpenMic }, () => this.getUserMedia())
+				this.setState({ canOpenMic })
+			})
+
+			socket.on('mute-video', (canOpenCam) => {
+				if (!canOpenCam) this.setState({ video: canOpenCam }, () => this.getUserMedia())
+				this.setState({ canOpenCam })
 			})
 
 			socket.on('user-joined', (id, clients, user) => {
-				this.setState({listUser : user})
+				this.setState({ listUser: user })
 				clients.forEach((socketListId) => {
 					connections[socketListId] = new RTCPeerConnection(peerConnectionConfig)
 					// Wait for their ice candidate       
 					connections[socketListId].onicecandidate = function (event) {
+						console.log(event.candidate)
 						if (event.candidate != null) {
 							socket.emit('signal', socketListId, JSON.stringify({ 'ice': event.candidate }))
 						}
 					}
-
+					connections[socketListId].ontrack = (event) => {
+						var searchVidep = document.querySelector(`[data-socket="${socketListId}"]`)
+						if (searchVidep !== null) { // if i don't do this check it make an empyt square
+							return;
+						} else {
+							searchVidep.srcObject = event.streams[0];
+						}
+					};
 					// Wait for their video stream
 					connections[socketListId].onaddstream = (event) => {
 						// TODO mute button, full screen button
@@ -287,10 +299,10 @@ class LiveRoom extends Component {
 						if (searchVidep !== null) { // if i don't do this check it make an empyt square
 							searchVidep.srcObject = event.stream
 						} else {
-							UserFrameHelper.createVideo(event.stream, socketListId, clients.length, user.filter(x => x.socketId === socketListId)[0].username)
+							UserFrameHelper.createVideo(event.stream, socketListId, clients.length, user.filter(x => x.socketId === socketListId)[0].name)
 						}
 					}
-
+					// connections[socketListId].addStream(window.localStream||new MediaStream())
 					// Add the local video stream
 					if (window.localStream !== undefined && window.localStream !== null) {
 						connections[socketListId].addStream(window.localStream)
@@ -304,11 +316,11 @@ class LiveRoom extends Component {
 				if (id === socketId) {
 					for (let id2 in connections) {
 						if (id2 === socketId) continue
-						
-							try {
-								connections[id2].addStream(window.localStream)
-						} catch(e) {}
-			
+
+						try {
+							connections[id2].addStream(window.localStream)
+						} catch (e) { }
+
 						connections[id2].createOffer().then((description) => {
 							console.log(description)
 							connections[id2].setLocalDescription(description)
@@ -332,30 +344,40 @@ class LiveRoom extends Component {
 		return Object.assign(dst.stream.getAudioTracks()[0], { enabled: false })
 	}
 	black = ({ width = 640, height = 480 } = {}) => {
-		console.log('black')
 		let canvas = Object.assign(document.createElement("canvas"), { width, height })
 		canvas.getContext('2d').fillRect(0, 0, width, height)
 		let stream = canvas.captureStream()
 		return Object.assign(stream.getVideoTracks()[0], { enabled: false })
 	}
 
-	handleVideo = () => this.setState({ video: !this.state.video }, () => this.getUserMedia())
-	handleAudio = () => this.setState({ audio: !this.state.audio }, () => this.getUserMedia())
+	handleVideo = () => {
+		this.setState({ video: !this.state.video }, () =>{
+			const track = window.localStream.getVideoTracks()[0];
+			track.enabled = this.state.video
+		})
+	}
+	handleAudio = () => {
+		this.setState({ audio: !this.state.audio }, () => {
+			const track = window.localStream.getAudioTracks()[0];
+			track.enabled = this.state.audio
+		})
+	}
+
 	handleScreen = () => this.setState({ screen: !this.state.screen }, () => this.getDislayMedia())
 
 	handleEndCall = () => {
 		try {
 			let tracks = this.localVideoref.current.srcObject.getTracks()
 			tracks.forEach(track => track.stop())
-		} catch (e) {}
+		} catch (e) { }
 		window.location.href = "/"
 	}
 
 	openChat = () => this.setState({ showModal: true, newmessages: 0 })
 	closeChat = () => this.setState({ showModal: false })
 	handleMessage = (e) => this.setState({ message: e.target.value })
-	openUser = () => this.setState({showUserModal : true})
-	closeUserModel = () => this.setState({showUserModal : false})
+	openUser = () => this.setState({ showUserModal: true })
+	closeUserModel = () => this.setState({ showUserModal: false })
 
 	addMessage = (data, sender, socketIdSender) => {
 		this.setState(prevState => ({
@@ -367,8 +389,8 @@ class LiveRoom extends Component {
 	}
 
 	sendMessage = () => {
-		socket.emit('chat-message', this.state.message, this.state.username)
-		this.setState({ message: "", sender: this.state.username })
+		socket.emit('chat-message', this.state.message, this.state.user.name)
+		this.setState({ message: "", sender: this.state.user.name })
 	}
 
 	copyUrl = () => {
@@ -378,7 +400,7 @@ class LiveRoom extends Component {
 		}, () => {
 			message.error("Failed to copy")
 		})
-	}	
+	}
 
 	isLogin = () => {
 		let text = window.location.href
@@ -389,43 +411,54 @@ class LiveRoom extends Component {
 		})
 	}
 
-	handleMute = (element) =>{
-		socket.emit('mute-audio', window.location.href , element.socketId)
+	handleUserMic = (element) => {
+		const listUser = this.state.listUser.map(x => {
+			return (x.socketId === element.socketId) ? { ...x, canOpenMic: !x.canOpenMic } : x
+		})
+		this.setState({ listUser })
+		socket.emit('mute-audio', window.location.href, element.socketId)
 	}
-	
+	handleUserCam = (element) => {
+		const listUser = this.state.listUser.map(x => {
+			return (x.socketId === element.socketId) ? { ...x, canOpenCam: !x.canOpenCam } : x
+		})
+		this.setState({ listUser })
+		socket.emit('mute-video', window.location.href, element.socketId)
+	}
+
 	render() {
 		return (
 			<div>
 				<div>
-					<div className="btn-down" style={{textAlign: "center" }}>
+					<div className="btn-down" style={{ textAlign: "center" }}>
 						<div className='link' onClick={this.copyUrl} title='copy link url'>
 						</div>
 						<div>
-							<IconCustom tooltip='video' state={this.state.video} Icon={VideocamIcon} OffIcon={VideocamOffIcon} handleClick={this.handleVideo}/>
-							<IconButton  className='off' style={{ color: "#f44336" }} onClick={this.handleEndCall}>
+							<IconCustom disabled={!this.state.canOpenCam} tooltip='video' state={this.state.video} Icon={VideocamIcon} OffIcon={VideocamOffIcon} handleClick={this.handleVideo} />
+							<IconButton disabled={!this.state.canOpenMic} className='off' style={{ color: "#f44336" }} onClick={this.handleEndCall}>
 								<CallEndIcon />
 							</IconButton>
-							<IconCustom  tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio}/>
+							<IconCustom tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio} />
 
 							{this.state.screenAvailable === true ?
 								<IconButton onClick={this.handleScreen}>
-									{this.state.screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon/>}
+									{this.state.screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
 								</IconButton>
 								: null}
 
 							<Badge badgeContent={this.state.newmessages} max={999} color="secondary" onClick={this.openChat}>
-								<IconButton className='roomButton'  onClick={this.openChat}>
+								<IconButton className='roomButton' onClick={this.openChat}>
 									<ChatIcon />
 								</IconButton>
 							</Badge>
 							<IconButton onClick={this.openUser}>
-								<PeopleAlt/>
+								<PeopleAlt />
 							</IconButton>
-							{this.state.isAdmin && <RollCall videoRef={this.localVideoref} userList={this.state.listUser} userName={this.state.username}/>}
+							{this.state.isAdmin && <RollCall videoRef={this.localVideoref} userList={this.state.listUser} user={this.state.user} socket={socket} />}
 						</div>
 						<div>
 						</div>
-						
+
 					</div>
 
 					<Modal show={this.state.showUserModal} onHide={this.closeUserModel} style={{ zIndex: "999999" }}>
@@ -434,15 +467,20 @@ class LiveRoom extends Component {
 						</Modal.Header>
 						<Modal.Body style={{ overflow: "auto", overflowY: "auto", height: "400px", textAlign: "left" }} >
 							{this.state.listUser.map(element => {
+								const isYou = (element.name === this.state.user.name)
 								return (
-									<div style={{display : 'flex', justifyContent : 'space-between'}}>
-										<p>{element.username + ((element.username === this.state.username)?' (you)':'')}</p>
-										{this.state.isAdmin && (
-											<IconButton className='roomButton'  onClick={()=> this.handleMute(element)}>
-												{element.isOnMic ? <MicIcon/> : <MicOffIcon/>}
+									<div style={{ display: 'flex', justifyContent: 'space-between' }}>
+										<p>{element.name + (isYou ? ' (you)' : '')}</p>
+										{this.state.isAdmin && !isYou && (<div>
+											<IconButton className='roomButton' onClick={() => this.handleUserMic(element)}>
+												{element.canOpenMic ? <MicIcon /> : <MicOffIcon />}
 											</IconButton>
+											<IconButton className='roomButton' onClick={() => this.handleUserCam(element)}>
+												{element.canOpenCam ? <VideocamIcon /> : <VideocamOffIcon />}
+											</IconButton>
+										</div>
 										)}
-									</div>	
+									</div>
 								)
 							})}
 						</Modal.Body>
@@ -454,7 +492,7 @@ class LiveRoom extends Component {
 						</Modal.Header>
 						<Modal.Body style={{ overflow: "auto", overflowY: "auto", height: "400px", textAlign: "left" }} >
 							{this.state.messages.length > 0 ? this.state.messages.map((item, index) => (
-								<div key={index} style={{textAlign: "left"}}>
+								<div key={index} style={{ textAlign: "left" }}>
 									<p style={{ wordBreak: "break-all" }}><b>{item.sender}</b>: {item.data}</p>
 								</div>
 							)) : <p>No message yet</p>}
@@ -470,15 +508,18 @@ class LiveRoom extends Component {
 							<div autoPlay muted style={{
 								position: 'relative',
 								margin: "10px",
-								width: "100%",height: "100%"}}>
+								width: "100%", height: "100%"
+							}}>
 								<div style={{
 									bottom: "10px",
-									left: "10px",position: "absolute"}}>
-									{this.state.username + ' (you)'}
+									left: "10px", position: "absolute"
+								}}>
+									{this.state.user.name + ' (you)'}
 								</div>
 								<video id="my-video" ref={this.localVideoref} autoPlay muted style={{
 									objectFit: "fill",
-									width: "100%",height: "100%"}}></video>
+									width: "100%", height: "100%"
+								}}></video>
 							</div>
 						</Row>
 					</div>

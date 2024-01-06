@@ -3,7 +3,6 @@ const http = require('http')
 var cors = require('cors')
 const app = express()
 const bodyParser = require('body-parser')
-const path = require("path")
 var xss = require("xss")
 
 var server = http.createServer(app)
@@ -12,12 +11,6 @@ var io = require('socket.io')(server)
 app.use(cors())
 app.use(bodyParser.json())
 
-if(process.env.NODE_ENV==='production'){
-	app.use(express.static(__dirname+"/build"))
-	app.get("*", (req, res) => {
-		res.sendFile(path.join(__dirname+"/build/index.html"))
-	})
-}
 app.set('port',  4001)
 
 sanitizeString = (str) => {
@@ -30,8 +23,9 @@ timeOnline = {}
 listUser = {}
 
 io.on('connection', (socket) => {
-
-	socket.on('join-call', (path , username) => {
+	var roomPath = null
+	socket.on('join-call', (path , name, userID) => {
+		roomPath = path
 		if(connections[path] === undefined){
 			connections[path] = []
 			io.to(socket.id).emit("grant-role")
@@ -43,7 +37,7 @@ io.on('connection', (socket) => {
 
 		connections[path].push(socket.id)
 		
-		listUser[path].push({socketId : socket.id ,username : username , isOnMic : false})
+		listUser[path].push({socketId : socket.id ,name ,userID, canOpenMic : true, canOpenCam: true})
 
 		timeOnline[socket.id] = new Date()
 
@@ -67,16 +61,27 @@ io.on('connection', (socket) => {
 	})
 
 	socket.on("mute-audio" , (path ,socketId)=>{
-		
 		listUser[path]?.map(item =>{
 			if (item.socketId == socketId) {
-				item.isOnMic = !item.isOnMic
+				item.canOpenMic = !item.canOpenMic
+				io.to(socketId).emit("mute-audio", item.canOpenMic)
 			}
 		})
+	})
 
-		for(let a = 0; a < connections[path]?.length; ++a){
-			io.to(connections[path][a]).emit("user-joined", socket.id, connections[path] ,listUser[path])
-		}
+	socket.on("mute-video" , (path ,socketId)=>{
+		listUser[path]?.map(item =>{
+			if (item.socketId == socketId) {
+				item.canOpenCam = !item.canOpenCam
+				io.to(socketId).emit("mute-video", item.canOpenCam)
+			}
+		})
+	})
+
+
+	socket.on("roll-call" , ()=>{
+		console.log(listUser[roomPath])
+		io.to(socket.id).emit('roll-call', listUser[roomPath])
 	})
 
 	socket.on('chat-message', (data, sender) => {

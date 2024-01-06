@@ -19,20 +19,21 @@ def rollcall():
         if data:
             results = []
             for item in data:
-
-                result = DeepFace.verify("data/"+ item['userID']+"/1.jpg", item['image'], model_name = 'VGG-Face', enforce_detection=False)
                 res = 0
-                # verified = str(result['verified'])
-                if result['verified'] == True:
-                    res = 1
-                results.append({'name': item['user'], 'verified': res})
-                
+                if item['userID'] == -1:
+                    results.append({'name': item['user'], 'verified': res})
+                else:    
+                    result = DeepFace.verify("data/"+ str(item['userID'])+"/1.jpg", item['image'], model_name = 'VGG-Face', enforce_detection=False)
+                    # verified = str(result['verified'])
+                    if result['verified'] == True:
+                        res = 1
+                    results.append({'name': item['user'], 'verified': res})
             return jsonify(results)
 
         else:
-            return jsonify({'status': 'error', 'message': 'No file part'})
+            return {'message': 'No file part'}, 404
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return {'message': str(e)}, 500
 
 
 @app.route('/upload', methods=['POST'])

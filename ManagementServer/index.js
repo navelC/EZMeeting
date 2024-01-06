@@ -16,6 +16,7 @@ app.use(express.json());
 
 app.post('/users', async (req, res) => {
     const { name, email, password } = req.body;
+    console.log(req.body)
     
     try {
         const emailCheckResult = await pool
