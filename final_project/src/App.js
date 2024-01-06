@@ -27,7 +27,7 @@ class App extends Component {
 					<Router>
 						<Header user={this.state.user}/>
 						<Switch>
-							<Route path="/" exact component={Home} />
+							<Route path="/" exact component={(props) => <Home user={this.state.user} context={props}/>} />
 							<Route path="/room/:url" exact component={(props) => <SwitchRoom user={this.state.user} context={props}/>} />
 							<Route path="/login" component={(props) => <Register mode={1} setUser={this.setUser} context={props}/>} />
 							<Route path="/register" component={(props) => <Register mode={2} setUser={this.setUser} context={props} />} />
@@ -40,7 +40,7 @@ class App extends Component {
 		(
 			<Router>
 				<Switch>
-				<Route path="/" exact component={Home} />
+				<Route path="/" exact component={(props) => <Home user={this.state.user} context={props}/>} />
 					<Route path="/room/:url" exact component={(props) => <SwitchRoom user={this.state.user} context={props}/>} />
 					<Route path="/login" component={(props) => <Register mode={1} setUser={this.setUser} context={props}/>} />
 					<Route path="/register" component={(props) => <Register mode={2} setUser={this.setUser} context={props} />} />

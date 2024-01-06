@@ -173,7 +173,7 @@ app.post('/rollcalls', async (req, res) => {
             .input('roomID', sql.NVarChar(12), roomID)
             .input('userID', sql.Int, userID)
             .input('isCount', sql.Bit, isCount)
-            .query('INSERT INTO EM_RollCall (roomID, userID, isCount) VALUES (@roomID, @userID, @isCount);');
+            .query('INSERT INTO EM_RollCallStatus (roomID, userID, isCount) VALUES (@roomID, @userID, @isCount);');
 
         res.json({ roomID, userID });
     } catch (err) {
@@ -185,7 +185,7 @@ app.post('/rollcalls', async (req, res) => {
 // Route to get all roll calls
 app.get('/rollcalls', async (req, res) => {
     try {
-        const result = await pool.request().query('SELECT * FROM EM_RollCall');
+        const result = await pool.request().query('SELECT * FROM EM_RollCallStatus');
         res.json(result.recordset);
     } catch (err) {
         console.error('Error querying roll calls:', err.message);
@@ -288,7 +288,7 @@ app.get('/rollcalls/:roomID/:userID', async (req, res) => {
             .request()
             .input('roomID', sql.NVarChar(12), roomID)
             .input('userID', sql.Int, userID)
-            .query('SELECT * FROM EM_RollCall WHERE roomID = @roomID AND userID = @userID');
+            .query('SELECT * FROM EM_RollCallStatus WHERE roomID = @roomID AND userID = @userID');
 
         if (result.recordset.length === 0) {
             res.status(404).send('Roll Call not found');
@@ -396,7 +396,7 @@ app.delete('/rollcalls/:roomID/:userID', async (req, res) => {
             .request()
             .input('roomID', sql.NVarChar(12), roomID)
             .input('userID', sql.Int, userID)
-            .query('DELETE FROM EM_RollCall WHERE roomID = @roomID AND userID = @userID');
+            .query('DELETE FROM EM_RollCallStatus WHERE roomID = @roomID AND userID = @userID');
 
         if (result.rowsAffected[0] === 0) {
             res.status(404).send('Roll Call not found');

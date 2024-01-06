@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import { Input, Button } from '@material-ui/core';
 import "./Home.scss"
-import uniqid from 'uniqid';
+import io from 'socket.io-client'
+// import uniqid from 'uniqid';
 import UserProfile from '../../storage'
 
 class Home extends Component {
@@ -9,9 +10,9 @@ class Home extends Component {
 		super(props)
 		this.state = {
 			url: '',
-			disabled: [true, true],
+			disabled: [true, !this.props.user],
 			name: '',
-			isLogin: false,
+			isLogin: !!this.props.user,
 		}
 	}
 
@@ -40,10 +41,15 @@ class Home extends Component {
 	}
 
 	create = () => {
-		var url = uniqid();
+		// var url = uniqid();
 		UserProfile.setName(this.state.name)
-
-		window.location.href = `/room/${url}`
+		const server_url = "http://localhost:4001"
+		// window.location.href = `/room/${url}`
+		const socket = io.connect(server_url, { secure: true })
+		socket.on('new-room', (path) => {
+			window.location.href = path
+		})
+		socket.emit('new-room', this.props.user?.userID || -1)
 	}
 
 	render() {

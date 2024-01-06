@@ -4,7 +4,7 @@ var cors = require('cors')
 const app = express()
 const bodyParser = require('body-parser')
 var xss = require("xss")
-
+const uniqid = require('uniqid');
 var server = http.createServer(app)
 var io = require('socket.io')(server)
 
@@ -22,28 +22,63 @@ messages = {}
 timeOnline = {}
 listUser = {}
 
+const axios = require('axios');
+
+const baseUrl = 'http://localhost:9090';
+const instance = axios.create({
+    baseURL: baseUrl,
+    method: 'get',
+});
+function rollcall(data) {
+  return instance.post(`/rollcall`, data);;
+}
+function uploadImage(data) {
+  return instance.post(`/upload`, data);
+}
+
 io.on('connection', (socket) => {
 	var roomPath = null
+	socket.on('new-room', (userID) => {
+		var url = 'http://localhost:3000/room/'+uniqid();
+		connections[url] = {
+			admin: userID,
+			users: []
+		}
+		io.to(socket.id).emit("new-room", url)
+	})
+	socket.on('check-room', (path, userID) => {
+		if(connections[path] === undefined){
+			io.to(socket.id).emit('check-room', false)
+		}
+		else {
+			if((userID !== -1 && userID === connections[path].admin) || connections[path].users.length === 0) io.to(socket.id).emit('check-room', true, true)
+			io.to(socket.id).emit('check-room', true)
+		}
+	})
 	socket.on('join-call', (path , name, userID) => {
 		roomPath = path
-		if(connections[path] === undefined){
-			connections[path] = []
-			io.to(socket.id).emit("grant-role")
-		}
+		// if(connections[path] === undefined){
+		// 	connections[path] = {
+		// 		admin: userID,
+		// 		users: []
+		// 	}
+		// 	io.to(socket.id).emit("grant-role")
+		// }
+		if((userID !== -1 && userID === connections[path].admin)) io.to(socket.id).emit("grant-role")
 		
 		if(listUser[path] === undefined){
 			listUser[path] = []
 		}
 
-		connections[path].push(socket.id)
+		connections[path].users.push(socket.id)
 		
 		listUser[path].push({socketId : socket.id ,name ,userID, canOpenMic : true, canOpenCam: true})
 
 		timeOnline[socket.id] = new Date()
 
 
-		for(let a = 0; a < connections[path].length; ++a){
-			io.to(connections[path][a]).emit("user-joined", socket.id, connections[path] ,listUser[path])
+		for(let a = 0; a < connections[path].users.length; ++a){
+			io.to(connections[path].users[a]).emit("user-joined", socket.id, connections[path].users ,listUser[path])
 		}
 
 		if(messages[path] !== undefined){
@@ -91,8 +126,8 @@ io.on('connection', (socket) => {
 		var key
 		var ok = false
 		for (const [k, v] of Object.entries(connections)) {
-			for(let a = 0; a < v.length; ++a){
-				if(v[a] === socket.id){
+			for(let a = 0; a < v.users.length; ++a){
+				if(v.users[a] === socket.id){
 					key = k
 					ok = true
 				}
@@ -106,31 +141,29 @@ io.on('connection', (socket) => {
 			messages[key].push({"sender": sender, "data": data, "socket-id-sender": socket.id})
 			console.log("message", key, ":", sender, data)
 
-			for(let a = 0; a < connections[key].length; ++a){
-				io.to(connections[key][a]).emit("chat-message", data, sender, socket.id)
+			for(let a = 0; a < connections[key].users.length; ++a){
+				io.to(connections[key].users[a]).emit("chat-message", data, sender, socket.id)
 			}
 		}
 	})
 
 	socket.on('disconnect', () => {
 		var diffTime = Math.abs(timeOnline[socket.id] - new Date())
-		var key
-		for (const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
-			for(let a = 0; a < v.length; ++a){
-				if(v[a] === socket.id){
-					key = k
+		for (const [key, v] of Object.entries(connections)) {
+			for(let a = 0; a < v.users.length; ++a){
+				if(v.users[a] === socket.id){
 					listUser[key] = listUser[key].filter(data => data.socketId !== socket.id)
 
-					for(let a = 0; a < connections[key].length; ++a){
-						io.to(connections[key][a]).emit("user-left", socket.id)
+					for(let a = 0; a < connections[key].users.length; ++a){
+						io.to(connections[key].users[a]).emit("user-left", socket.id)
 					}
 			
-					var index = connections[key].indexOf(socket.id)
-					connections[key].splice(index, 1)
+					var index = connections[key].users.indexOf(socket.id)
+					connections[key].users.splice(index, 1)
 
 					console.log(key, socket.id, Math.ceil(diffTime / 1000))
 
-					if(connections[key].length === 0){
+					if(connections[key].users.length === 0){
 						delete connections[key]
 					}
 				}

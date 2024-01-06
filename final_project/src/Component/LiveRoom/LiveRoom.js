@@ -109,10 +109,6 @@ class LiveRoom extends Component {
 	}
 
 	getUserMediaSuccess = (stream) => {
-		try {
-			window.localStream.getTracks().forEach(track => track.stop())
-		} catch (e) { console.log(e) }
-
 		window.localStream = stream
 		this.localVideoref.current.srcObject = stream
 
@@ -131,40 +127,13 @@ class LiveRoom extends Component {
 			})
 		}
 
-		stream.getTracks().forEach(track => track.onended = () => {
-			this.setState({
-				video: false,
-				audio: false,
-			}, () => {
-				try {
-					let tracks = this.localVideoref.current.srcObject.getTracks()
-					tracks.forEach(track => track.stop())
-				} catch (e) { console.log(e) }
-
-				let blackSilence = (...args) => new MediaStream([this.black(...args), this.silence()])
-				window.localStream = blackSilence()
-				this.localVideoref.current.srcObject = window.localStream
-
-				for (let id in connections) {
-					connections[id].addStream(window.localStream)
-
-					connections[id].createOffer().then((description) => {
-						connections[id].setLocalDescription(description)
-							.then(() => {
-								socket.emit('signal', id, JSON.stringify({ 'sdp': connections[id].localDescription }))
-							})
-							.catch(e => console.log(e))
-					})
-				}
-			})
-		})
 	}
 
 	getDislayMedia = () => {
 		if (this.state.screen) {
 			if (navigator.mediaDevices.getDisplayMedia) {
 				navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-					.then(this.getDislayMediaSuccess)
+					.then(this.getUserMediaSuccess)
 					.catch((e) => {
 						console.log(e)
 						this.setState({ screen: false })
@@ -175,50 +144,6 @@ class LiveRoom extends Component {
 			const tracks = this.screenstream.gettracks();
 			for (var i = 0; i < tracks.length; i++) tracks[i].stop();
 		}
-	}
-
-	getDislayMediaSuccess = (stream) => {
-		try {
-			window.localStream.getTracks().forEach(track => track.stop())
-		} catch (e) { console.log(e) }
-
-		window.localStream = stream
-		this.localVideoref.current.srcObject = stream
-
-		for (let id in connections) {
-			if (id === socketId) continue
-
-			connections[id].addStream(window.localStream)
-
-			connections[id].createOffer().then((description) => {
-				connections[id].setLocalDescription(description)
-					.then(() => {
-						socket.emit('signal', id, JSON.stringify({ 'sdp': connections[id].localDescription }))
-					})
-					.catch(e => console.log(e))
-			})
-
-			socket.on('list-users', (data) => {
-				console.log(data);
-			})
-		}
-
-		stream.getTracks().forEach(track => track.onended = () => {
-			this.setState({
-				screen: false,
-			}, () => {
-				try {
-					let tracks = this.localVideoref.current.srcObject.getTracks()
-					tracks.forEach(track => track.stop())
-				} catch (e) { console.log(e) }
-
-				let blackSilence = (...args) => new MediaStream([this.black(...args), this.silence()])
-				window.localStream = blackSilence()
-				this.localVideoref.current.srcObject = window.localStream
-
-				this.getUserMedia()
-			})
-		})
 	}
 
 	gotMessageFromServer = (fromId, message) => {
@@ -264,12 +189,18 @@ class LiveRoom extends Component {
 			})
 
 			socket.on('mute-audio', (canOpenMic) => {
-				if (!canOpenMic) this.setState({ audio: canOpenMic }, () => this.getUserMedia())
+				if (!canOpenMic) this.setState({ audio: canOpenMic }, () => {
+					const track = window.localStream.getAudioTracks()[0];
+					if(track) track.enabled = false
+				})
 				this.setState({ canOpenMic })
 			})
 
 			socket.on('mute-video', (canOpenCam) => {
-				if (!canOpenCam) this.setState({ video: canOpenCam }, () => this.getUserMedia())
+				if (!canOpenCam) this.setState({ video: canOpenCam }, () => {
+					const track = window.localStream.getVideoTracks()[0];
+					if(track) track.enabled = false
+				})
 				this.setState({ canOpenCam })
 			})
 
@@ -307,8 +238,8 @@ class LiveRoom extends Component {
 					if (window.localStream !== undefined && window.localStream !== null) {
 						connections[socketListId].addStream(window.localStream)
 					} else {
-						let blackSilence = (...args) => new MediaStream([this.black(...args), this.silence()])
-						window.localStream = blackSilence()
+						let blackSilence = new MediaStream([this.black()])
+						window.localStream = blackSilence
 						connections[socketListId].addStream(window.localStream)
 					}
 				})
@@ -335,14 +266,6 @@ class LiveRoom extends Component {
 		})
 	}
 
-	silence = () => {
-		let ctx = new AudioContext()
-		let oscillator = ctx.createOscillator()
-		let dst = oscillator.connect(ctx.createMediaStreamDestination())
-		oscillator.start()
-		ctx.resume()
-		return Object.assign(dst.stream.getAudioTracks()[0], { enabled: false })
-	}
 	black = ({ width = 640, height = 480 } = {}) => {
 		let canvas = Object.assign(document.createElement("canvas"), { width, height })
 		canvas.getContext('2d').fillRect(0, 0, width, height)
@@ -351,7 +274,7 @@ class LiveRoom extends Component {
 	}
 
 	handleVideo = () => {
-		this.setState({ video: !this.state.video }, () =>{
+		this.setState({ video: !this.state.video }, () => {
 			const track = window.localStream.getVideoTracks()[0];
 			track.enabled = this.state.video
 		})
@@ -435,10 +358,10 @@ class LiveRoom extends Component {
 						</div>
 						<div>
 							<IconCustom disabled={!this.state.canOpenCam} tooltip='video' state={this.state.video} Icon={VideocamIcon} OffIcon={VideocamOffIcon} handleClick={this.handleVideo} />
-							<IconButton disabled={!this.state.canOpenMic} className='off' style={{ color: "#f44336" }} onClick={this.handleEndCall}>
+							<IconButton className='off' style={{ color: "#f44336" }} onClick={this.handleEndCall}>
 								<CallEndIcon />
 							</IconButton>
-							<IconCustom tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio} />
+							<IconCustom disabled={!this.state.canOpenMic}  tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio} />
 
 							{this.state.screenAvailable === true ?
 								<IconButton onClick={this.handleScreen}>
