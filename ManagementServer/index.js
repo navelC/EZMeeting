@@ -82,7 +82,6 @@ app.post('/classes', async (req, res) => {
             .input('userIDs', sql.NVarChar(sql.MAX), userIDs)
             .input('classMasterID', sql.Int, classMasterID)
             .query('INSERT INTO EM_Class (className, userIDs, classMasterID) VALUES (@className, @userIDs, @classMasterID);');
-
         res.json({ classID: result.recordset[0].classID });
     } catch (err) {
         console.error('Error creating a new class:', err.message);
@@ -101,18 +100,18 @@ app.get('/classes', async (req, res) => {
     }
 });
 app.post('/rooms', async (req, res) => {
-    const { roomID, startTime, endTime, classID, roomMasterID } = req.body;
-
+    const { id } = req.body;
+    const startTime = new Date()
+    const endTime = new Date()
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), id)
             .input('startTime', sql.DateTime, startTime)
             .input('endTime', sql.DateTime, endTime)
-            .input('classID', sql.Int, classID)
-            .input('roomMasterID', sql.Int, roomMasterID)
-            .query('INSERT INTO EM_Room (roomID, startTime, endTime, classID, roomMasterID) VALUES (@roomID, @startTime, @endTime, @classID, @roomMasterID);');
-
+            .query('INSERT INTO EM_Room (roomID, startTime, endTime) VALUES (@roomID, @startTime, @endTime);');
+        console.log(result)
+        const {roomID} = result.recordset[0]
         res.json({ roomID: result.recordset[0].roomID });
     } catch (err) {
         console.error('Error creating a new room:', err.message);
@@ -170,7 +169,7 @@ app.post('/rollcalls', async (req, res) => {
     try {
         await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .input('userID', sql.Int, userID)
             .input('isCount', sql.Bit, isCount)
             .query('INSERT INTO EM_RollCallStatus (roomID, userID, isCount) VALUES (@roomID, @userID, @isCount);');
@@ -243,7 +242,7 @@ app.get('/rooms/:id', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .query('SELECT * FROM EM_Room WHERE roomID = @roomID');
 
         if (result.recordset.length === 0) {
@@ -264,7 +263,7 @@ app.get('/records/:roomID/:userID', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .input('userID', sql.Int, userID)
             .query('SELECT * FROM EM_Record WHERE roomID = @roomID AND userID = @userID');
 
@@ -286,7 +285,7 @@ app.get('/rollcalls/:roomID/:userID', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .input('userID', sql.Int, userID)
             .query('SELECT * FROM EM_RollCallStatus WHERE roomID = @roomID AND userID = @userID');
 
@@ -351,7 +350,7 @@ app.delete('/rooms/:id', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .query('DELETE FROM EM_Room WHERE roomID = @roomID');
 
         if (result.rowsAffected[0] === 0) {
@@ -372,7 +371,7 @@ app.delete('/records/:roomID/:userID', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .input('userID', sql.Int, userID)
             .query('DELETE FROM EM_Record WHERE roomID = @roomID AND userID = @userID');
 
@@ -394,7 +393,7 @@ app.delete('/rollcalls/:roomID/:userID', async (req, res) => {
     try {
         const result = await pool
             .request()
-            .input('roomID', sql.NVarChar(12), roomID)
+            .input('roomID', sql.NVarChar(50), roomID)
             .input('userID', sql.Int, userID)
             .query('DELETE FROM EM_RollCallStatus WHERE roomID = @roomID AND userID = @userID');
 

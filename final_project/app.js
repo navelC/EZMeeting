@@ -29,11 +29,11 @@ const instance = axios.create({
     baseURL: baseUrl,
     method: 'get',
 });
-function rollcall(data) {
+function createUserAttendance(data) {
   return instance.post(`/rollcall`, data);;
 }
-function uploadImage(data) {
-  return instance.post(`/upload`, data);
+function createRoom(data) {
+  return instance.post(`/rooms`, data);
 }
 
 io.on('connection', (socket) => {
@@ -42,9 +42,37 @@ io.on('connection', (socket) => {
 		var url = 'http://localhost:3000/room/'+uniqid();
 		connections[url] = {
 			admin: userID,
-			users: []
+			users: [],
+			waitingUsers: [],
+			roomID: -1,
+			savedUser: []
+		}
+		if(userID !== -1){
+			createRoom({id: url}).then(() => {
+				connections[url].roomID = id
+			}).catch(err => {
+				console.log(err)
+			})
 		}
 		io.to(socket.id).emit("new-room", url)
+	})
+	socket.on('request-join', (path, userID, name) => {
+		console.log('request')
+		if(connections[path] === undefined){
+			console.log('room not found')
+			return 
+		}
+		connections[path].waitingUsers.push({socketId : socket.id ,name})
+		const adminSocket = listUser[path].filter(x => x.userID === connections[path].admin)[0]?.socketId
+		io.to(adminSocket).emit('request-join', connections[path].waitingUsers)
+		
+	})
+	socket.on("request-response" , (path, socketID, isAllowed)=>{
+		connections[path].waitingUsers = connections[path].waitingUsers.filter(x => x.socketId !== socketID)
+		for(let a = 0; a < connections[path].users.length; ++a){
+			io.to(connections[path].users[a]).emit("update-waitingList",  connections[path].waitingUsers)
+		}
+		io.to(socketID).emit('request-response', isAllowed)
 	})
 	socket.on('check-room', (path, userID) => {
 		if(connections[path] === undefined){
@@ -56,7 +84,6 @@ io.on('connection', (socket) => {
 		}
 	})
 	socket.on('join-call', (path , name, userID) => {
-		roomPath = path
 		// if(connections[path] === undefined){
 		// 	connections[path] = {
 		// 		admin: userID,
@@ -64,8 +91,16 @@ io.on('connection', (socket) => {
 		// 	}
 		// 	io.to(socket.id).emit("grant-role")
 		// }
+		if(connections[path] === undefined) {
+			console.log('room not found')
+			return
+		}
+		// if(connections[path].savedUser.some(x => {
+		// 	return x === userID
+		// })){
+
+		// }
 		if((userID !== -1 && userID === connections[path].admin)) io.to(socket.id).emit("grant-role")
-		
 		if(listUser[path] === undefined){
 			listUser[path] = []
 		}
@@ -78,7 +113,7 @@ io.on('connection', (socket) => {
 
 
 		for(let a = 0; a < connections[path].users.length; ++a){
-			io.to(connections[path].users[a]).emit("user-joined", socket.id, connections[path].users ,listUser[path])
+			io.to(connections[path].users[a]).emit("user-joined", socket.id, connections[path].users ,listUser[path],  connections[path].waitingUsers)
 		}
 
 		if(messages[path] !== undefined){

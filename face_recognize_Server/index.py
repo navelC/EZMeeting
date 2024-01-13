@@ -23,10 +23,13 @@ def rollcall():
                 if item['userID'] == -1:
                     results.append({'name': item['user'], 'verified': res})
                 else:    
-                    result = DeepFace.verify("data/"+ str(item['userID'])+"/1.jpg", item['image'], model_name = 'VGG-Face', enforce_detection=False)
+                    try:
+                        result = DeepFace.verify("data/"+ str(item['userID'])+"/1.jpg", item['image'], model_name = 'VGG-Face', enforce_detection=False)
+                        if result['verified'] == True:
+                            res = 1
+                    except:
+                        print('image not found')
                     # verified = str(result['verified'])
-                    if result['verified'] == True:
-                        res = 1
                     results.append({'name': item['user'], 'verified': res})
             return jsonify(results)
 

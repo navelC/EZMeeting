@@ -7,42 +7,52 @@ import io from 'socket.io-client'
 const server_url = "http://localhost:4001"
 
 class SwitchRoom extends Component {
+	socket;
 	constructor(props) {
 		super(props)
-
-		this.SwitchRoom = this.SwitchRoom.bind(this);
+		this.requestJoin = this.requestJoin.bind(this);
 		this.state = {
 			isInWaitingRoom: true,
-			name: UserProfile.getName()
+			name: UserProfile.getName(),
+			isLoading: false,
+			isDenied: false
 		}
 		this.checkRoom()
 	}
 	
 	checkRoom = () => {
-		const socket = io.connect(server_url, { secure: true })
+		this.socket = io.connect(server_url, { secure: true })
 		const url = window.location.href
-		socket.on('check-room', (existRoom, isAdmin) => {
+		this.socket.on('check-room', (existRoom, isAdmin) => {
 			if(existRoom){
-				if(isAdmin) this.SwitchRoom()
+				if(isAdmin) this.setState({isInWaitingRoom: false})
 			}
 			else {
 				alert('room does not exist')
 				window.location.href = '/'
 			}
 		})
-		socket.emit('check-room',url, this.props.user?.userID || -1)
+		this.socket.on('request-response', (isAllowed) => {
+			if(isAllowed) this.setState({isInWaitingRoom: false})
+			else this.setState({isDenied: true})
+		})
+		this.socket.emit('check-room',url, this.props.user?.userID || -1)
 	}
 
-    SwitchRoom = () => {this.setState({ isInWaitingRoom: false })}
+    requestJoin = () => {
+		console.log('request')
+		this.setState({isLoading: true})
+		this.socket.emit('request-join',window.location.href, this.props.user?.userID || -1, this.state.name || UserProfile.getName())
+	}
 
 	render() {
 		console.log(UserProfile.getName())
 		return (
 			<div>
-				{(UserProfile.getName() || !this.state.isInWaitingRoom)?
-					<LiveRoom user={this.props.user}/>
+				{(this.state.isInWaitingRoom)?
+					<WaitingRoom user={this.props.user} switch={this.requestJoin} isLoading={this.state.isLoading} isDenied={this.state.isDenied}/>
 					:
-					<WaitingRoom user={this.props.user} switch={this.SwitchRoom} />
+					<LiveRoom user={this.props.user}/>
 				}
 			</div>
 		)

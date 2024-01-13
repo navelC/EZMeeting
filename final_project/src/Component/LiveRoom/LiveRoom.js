@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import io from 'socket.io-client'
 
-import { IconButton, Badge, Input, Button } from '@material-ui/core'
+import { IconButton, Badge, Input, Button, Avatar } from '@material-ui/core'
 import VideocamIcon from '@material-ui/icons/Videocam'
 import VideocamOffIcon from '@material-ui/icons/VideocamOff'
 import MicIcon from '@material-ui/icons/Mic'
@@ -55,6 +55,7 @@ class LiveRoom extends Component {
 			user: this.props.user || { name: UserProfile.getName(), userID: -1 },
 			showUserModal: false,
 			listUser: [],
+			listWaiting: [],
 			isAdmin: false,
 			canOpenMic: true,
 			canOpenCam: true,
@@ -184,6 +185,10 @@ class LiveRoom extends Component {
 				UserFrameHelper.removeVideo(id)
 			})
 
+			socket.on('update-waitingList', (listWaiting) => {
+				this.setState({ listWaiting: listWaiting })
+			})
+
 			socket.on('grant-role', () => {
 				this.setState({ isAdmin: true })
 			})
@@ -191,7 +196,7 @@ class LiveRoom extends Component {
 			socket.on('mute-audio', (canOpenMic) => {
 				if (!canOpenMic) this.setState({ audio: canOpenMic }, () => {
 					const track = window.localStream.getAudioTracks()[0];
-					if(track) track.enabled = false
+					if (track) track.enabled = false
 				})
 				this.setState({ canOpenMic })
 			})
@@ -199,13 +204,18 @@ class LiveRoom extends Component {
 			socket.on('mute-video', (canOpenCam) => {
 				if (!canOpenCam) this.setState({ video: canOpenCam }, () => {
 					const track = window.localStream.getVideoTracks()[0];
-					if(track) track.enabled = false
+					if (track) track.enabled = false
 				})
 				this.setState({ canOpenCam })
 			})
 
-			socket.on('user-joined', (id, clients, user) => {
+			socket.on('request-join', (users) => {
+				this.setState({ listWaiting: users })
+			})
+
+			socket.on('user-joined', (id, clients, user, waitingUsers) => {
 				this.setState({ listUser: user })
+				this.setState({ listWaiting: waitingUsers })
 				clients.forEach((socketListId) => {
 					connections[socketListId] = new RTCPeerConnection(peerConnectionConfig)
 					// Wait for their ice candidate       
@@ -348,6 +358,14 @@ class LiveRoom extends Component {
 		this.setState({ listUser })
 		socket.emit('mute-video', window.location.href, element.socketId)
 	}
+	allow = (element) => {
+		this.setState({ listWaiting: [...this.state.listWaiting.filter(x => x.socketId !== element.socketId)] })
+		socket.emit('request-response',window.location.href, element.socketId, true)
+	}
+	deny = (element) => {
+		this.setState({ listWaiting: [...this.state.listWaiting.filter(x => x.socketId !== element.socketId)] })
+		socket.emit('request-response',window.location.href, element.socketId, false)
+	}
 
 	render() {
 		return (
@@ -361,7 +379,7 @@ class LiveRoom extends Component {
 							<IconButton className='off' style={{ color: "#f44336" }} onClick={this.handleEndCall}>
 								<CallEndIcon />
 							</IconButton>
-							<IconCustom disabled={!this.state.canOpenMic}  tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio} />
+							<IconCustom disabled={!this.state.canOpenMic} tooltip='micro' state={this.state.audio} Icon={MicIcon} OffIcon={MicOffIcon} handleClick={this.handleAudio} />
 
 							{this.state.screenAvailable === true ?
 								<IconButton onClick={this.handleScreen}>
@@ -374,9 +392,11 @@ class LiveRoom extends Component {
 									<ChatIcon />
 								</IconButton>
 							</Badge>
-							<IconButton onClick={this.openUser}>
-								<PeopleAlt />
-							</IconButton>
+							<Badge badgeContent={this.state.listWaiting.length} max={999} color="secondary" onClick={this.openUser}>
+								<IconButton>
+									<PeopleAlt />
+								</IconButton>
+							</Badge>
 							{this.state.isAdmin && <RollCall videoRef={this.localVideoref} userList={this.state.listUser} user={this.state.user} socket={socket} />}
 						</div>
 						<div>
@@ -386,26 +406,52 @@ class LiveRoom extends Component {
 
 					<Modal show={this.state.showUserModal} onHide={this.closeUserModel} style={{ zIndex: "999999" }}>
 						<Modal.Header closeButton>
-							<Modal.Title>User list</Modal.Title>
+							<Modal.Title>User</Modal.Title>
 						</Modal.Header>
 						<Modal.Body style={{ overflow: "auto", overflowY: "auto", height: "400px", textAlign: "left" }} >
-							{this.state.listUser.map(element => {
-								const isYou = (element.name === this.state.user.name)
-								return (
-									<div style={{ display: 'flex', justifyContent: 'space-between' }}>
-										<p>{element.name + (isYou ? ' (you)' : '')}</p>
-										{this.state.isAdmin && !isYou && (<div>
-											<IconButton className='roomButton' onClick={() => this.handleUserMic(element)}>
-												{element.canOpenMic ? <MicIcon /> : <MicOffIcon />}
-											</IconButton>
-											<IconButton className='roomButton' onClick={() => this.handleUserCam(element)}>
-												{element.canOpenCam ? <VideocamIcon /> : <VideocamOffIcon />}
-											</IconButton>
+							{(this.state.listWaiting.length) ? (
+								<div className='user-component'>
+									<div className='title'>Waiting for join</div>
+									{this.state.listWaiting.map(element => {
+										return (
+											<div className='user-card'>
+												<div>
+													<Avatar style={{ width: 32, height: 32, background: "rgb(93 64 55)" }}>{element.name.substring(0, 1)}</Avatar>
+													<p>{element.name}</p>
+												</div>
+												{this.state.isAdmin && (<div className='action'>
+													<div onClick={() => this.allow(element)}>Allow</div>
+													<div onClick={() => this.deny(element)}>Deny</div>
+												</div>)}
+											</div>
+										)
+									})}
+								</div>
+							) : null}
+							<div className='user-component'>
+								<div className='title'> In Meeting</div>
+								{this.state.listUser.map(element => {
+									const isYou = (element.name === this.state.user.name)
+									return (
+										<div className='user-card'>
+											<div>
+												<Avatar style={{ width: 32, height: 32, background: "rgb(93 64 55)" }}>{element.name.substring(0, 1)}</Avatar>
+												<p>{element.name + (isYou ? ' (you)' : '') + (element.isAdmin ? '(Meeting host)' : '')}</p>
+											</div>
+											{this.state.isAdmin && !isYou && (<div>
+												<IconButton className='roomButton' onClick={() => this.handleUserMic(element)}>
+													{element.canOpenMic ? <MicIcon /> : <MicOffIcon />}
+												</IconButton>
+												<IconButton className='roomButton' onClick={() => this.handleUserCam(element)}>
+													{element.canOpenCam ? <VideocamIcon /> : <VideocamOffIcon />}
+												</IconButton>
+											</div>
+											)}
 										</div>
-										)}
-									</div>
-								)
-							})}
+									)
+								})}
+							</div>
+
 						</Modal.Body>
 					</Modal>
 
@@ -446,6 +492,14 @@ class LiveRoom extends Component {
 							</div>
 						</Row>
 					</div>
+					{/* <div className='waiting-component'>
+						<div><Avatar style={{width: 24, height: 24}} >H</Avatar></div>
+						<div>anyone wants to join</div>
+						<div className='action'>
+							<div>allow</div>
+							<div>deny</div>
+						</div>
+					</div> */}
 				</div>
 			</div>
 		)
